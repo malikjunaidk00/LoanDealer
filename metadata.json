@@ -1,0 +1,6 @@
+{
+  "name": "LoanDealer",
+  "description": "A professional loan and debt tracking application for personal and business use, featuring person-wise grouping and detailed overview analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

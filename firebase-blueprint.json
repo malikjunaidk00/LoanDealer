@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Information about the application user",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "currency": { "type": "string", "enum": ["$", "€", "£", "₹", "¥"], "description": "Preferred currency symbol" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "LoanRecord": {
+      "title": "Loan Record",
+      "description": "A record of a financial transaction between the user and a friend",
+      "type": "object",
+      "properties": {
+        "personName": { "type": "string", "description": "Normalized name of the friend" },
+        "amount": { "type": "number", "description": "Absolute amount of money" },
+        "type": { "type": "string", "enum": ["lent", "borrowed"] },
+        "status": { "type": "string", "enum": ["pending", "returned"] },
+        "note": { "type": "string", "description": "Optional description of the loan" },
+        "dueDate": { "type": "string", "format": "date", "description": "Optional date when the loan is expected to be returned" },
+        "transactionDate": { "type": "string", "format": "date", "description": "The date when the transaction occurred" },
+        "userId": { "type": "string", "description": "The UID of the user who owns this record" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["personName", "amount", "type", "status", "userId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/loans/{loanId}": {
+      "schema": "LoanRecord",
+      "description": "Global collection of loan records secured by ownership"
+    }
+  }
+}

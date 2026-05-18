@@ -1,0 +1,102 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // --- Entity Validations ---
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'createdAt']) &&
+             data.keys().size() <= 6 &&
+             data.email is string && data.email.size() <= 256 &&
+             data.get('displayName', '') is string && data.displayName.size() <= 128 &&
+             data.get('currency', '$') in ['$', '€', '£', '₹', '¥'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidLoan(data) {
+      return data.keys().hasAll(['personName', 'amount', 'type', 'status', 'userId', 'createdAt']) &&
+             data.keys().size() <= 12 &&
+             data.personName is string && data.personName.size() <= 100 &&
+             data.amount is number && data.amount > 0 &&
+             data.type in ['lent', 'borrowed'] &&
+             data.status in ['pending', 'returned'] &&
+             data.get('note', '') is string && data.get('note', '').size() <= 2000 &&
+             data.get('dueDate', '') is string && data.get('dueDate', '').size() <= 32 &&
+             data.get('transactionDate', '') is string && data.get('transactionDate', '').size() <= 32 &&
+             data.userId == request.auth.uid &&
+             data.createdAt is timestamp &&
+             (data.get('updatedAt', request.time) is timestamp);
+    }
+
+    // --- Match Blocks ---
+
+    // System warmup
+    match /system/ping {
+      allow get: if true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && 
+                      isValidId(userId) &&
+                      isValidUser(incoming()) && 
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().email == existing().email &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'currency']);
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+
+    // Loan records
+    match /loans/{loanId} {
+      allow get: if isOwner(existing().userId) && isValidId(loanId);
+      allow list: if isOwner(resource.data.userId);
+      
+      allow create: if isValidId(loanId) && 
+                      isValidLoan(incoming()) && 
+                      isOwner(incoming().userId) &&
+                      incoming().createdAt == request.time &&
+                      incoming().updatedAt == request.time;
+      
+      allow update: if isValidId(loanId) &&
+                      isOwner(existing().userId) &&
+                      isValidLoan(incoming()) &&
+                      incoming().userId == existing().userId &&
+                      incoming().createdAt == existing().createdAt &&
+                      incoming().updatedAt == request.time;
+      
+      allow delete: if isOwner(existing().userId) && isValidId(loanId);
+    }
+  }
+}
